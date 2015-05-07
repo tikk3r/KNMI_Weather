@@ -87,9 +87,32 @@ def reduce_data():
 
 def dayAvg(data, yyyy, mm=1, dd=-1):
     ''' Calculate the daily average.
+    Assumes january and all days by default.
+    Args:
+        ndarray data - data to be analyzed.
+        int yyyy - the year.
+        int mm - the month.
+        int dd - the day.
+    Returns:
+        ndarray/float davg - average of the day.
+        ndarray/float dstd - standard deviation of the day.
     '''
-    # Prepare the data we need.
-    dat = data[yyyy - YR_START][mm-1]
+    if dd < 0:
+        # Take all days for the specified month.
+        dat = data[yyyy - YR_START][mm-1]
+        davg = []; dstd = []
+        for day in dat:
+            avg = np.nanmean(day)
+            std = np.nanstd(day)
+            davg.append(avg)
+            dstd.append(std)
+        return np.asarray(davg), np.asarray(dstd)
+    else:
+        # Take the specific day.
+        dat = data[yyyy - YR_START][mm-1][dd]
+        davg = np.nanmean(dat)
+        dstd = np.nanstd(dat)
+        return davg, dstd
 
 def monAvg(data, yyyy, mm=-1):
     ''' Calculate the full monthly average.
@@ -98,8 +121,8 @@ def monAvg(data, yyyy, mm=-1):
             float yyyy - the year in yyyy format.
             float mm - the month in mm format, normally assumes all months.
         Returns:
-            ndarray mavgmean - monthly averages.
-            ndarray mavgstd - standard deviation of the monthly averages.
+            ndarray/float mavgmean - monthly averages.
+            ndarray/float mavgstd - standard deviation of the monthly averages.
     '''
     if mm < 0: # User wants all months.
         mavgmean = []; mavgstd = []
@@ -186,12 +209,11 @@ if __name__ == '__main__':
     indx_y = yyyy - YR_START
     indx_m = mm - 1
     indx_d = dd - 1
-    print mm
-    print monAvg(TEMP, yyyy), len(monAvg(TEMP, yyyy))  
-    
+   
+    print dayAvg(TEMP, yyyy, mm=mm, dd=dd)[0]
     fig = figure()
     ax = fig.add_subplot(111)
     #ax.plot(range(12), monAvg(TEMP, yyyy))
     #ax.set_ylim(-10, 30)
     plot(ax, range(12), monAvg(TEMP, yyyy)[0], yerror=monAvg(TEMP,yyyy)[1], type='month', xlabel='Month', ylabel='Temperature $\\degree$C')
-    show()
+    #show()
