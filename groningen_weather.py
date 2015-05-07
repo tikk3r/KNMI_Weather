@@ -7,6 +7,7 @@ import numpy as np
 
 DATE, HOUR, TEMP, CLOUD = [], [], [], []
 YR_START = 0; YR_END = 0
+month_labels = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 ###########################
 # Pre-use data reduction. #
 ###########################
@@ -84,6 +85,7 @@ def reduce_data():
     DATE = date_m; HOUR = hour_m; TEMP = temp_m; CLOUD = cloud_m
     YR_START = int(date[0] // 1e4); YR_END = int(date[len(date)-1] //1e4)
 
+
 def monAvg(data, yyyy, mm=-1):
     ''' Calculate the full monthly average.
         Args:
@@ -91,18 +93,20 @@ def monAvg(data, yyyy, mm=-1):
             float yyyy - the year in yyyy format.
             float mm - the month in mm format, normally assumes all months.
         Returns:
-            ndarray
+            ndarray mavgmean - monthly averages.
+            ndarray mavgstd - standard deviation of the monthly averages.
     '''
     if mm < 0: # User wants all months.
-        mavg = []
+        mavgmean = []; mavgstd = []
         for month in data[int(yyyy - YR_START)]:
             davg = []
             for day in month:
                 # Average of the day.
                 avg = np.nanmean(day); davg.append(avg)
             # Average of the month.
-            mavg.append(np.nanmean(davg))
-        return np.asarray(mavg)
+            mavgmean.append(np.nanmean(davg))
+            mavgstd.append(np.nanstd(davg))
+        return np.asarray(mavgmean), np.asarray(mavgstd)
     else: # User specifies a month.
         # Select the required month.
         dat = data[int(yyyy - YR_START)][mm]
@@ -111,8 +115,9 @@ def monAvg(data, yyyy, mm=-1):
             # Daily average.
             davg.append(np.nanmean(day))
         # Average of the month.
-        mavg = np.asarray(np.nanmean(davg))
-        return mavg
+        mavgmean = np.asarray(np.nanmean(davg))
+        mavgstd = np.asarray(np.nanstd(davg))
+        return mavgmean, mavgstd
 
 def monDayNightAvg(data, yyyy, mm=1):
     ''' Calculate monthly average for the day hours and for the night hours separately.
@@ -136,67 +141,52 @@ def monDayNightAvg(data, yyyy, mm=1):
         aa = np.nanmean(day[12:18]); aad.append(aa)
         ea = np.nanmean(day[18:24]); ead.append(ea)
     return np.asarray(nad), np.asarray(mad), np.asarray(aad), np.asarray(ead)
-        
+
+def plot(ax, x, y, type, yerror=None, title='', xlabel='', ylabel='', format='o-'):
+    ''' Eases the plotting of data by helping with the axes formatting.
+    Args:
+        Axis ax - the axis to plot on.
+        ndarray x - independent variable.
+        ndarray y - dependend variable.
+        str type - type of data to plot. Can be year, month or day.
+        xlabel - text for the xaxis.
+        ylabel - text for the yaxis.
+    Returns:
+        None
+    '''
+    if type == 'year':
+        pass
+    elif type == 'month':
+        ax.set_xlim(-1, 13); ax.set_ylim(-10, 30)
+        ax.set_title(title)
+        ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], 15))
+        ax.set_xticklabels(month_labels)
+        ax.set_xlabel(xlabel); ax.set_ylabel(ylabel)
+        if yerror is not None:
+            ax.errorbar(x, y, yerr=yerror, fmt=format)
+        else:
+            ax.plot(x, y, format)
+############
+
 reduce_data()
-print YR_END - 2013
 ##############################################################################################################################################################
 # Data processing finished. Access the data as date_m[year][month][day] or variable[year][month][day][hour] where variable can be hour_m, temp_m or cloud_m. #
 ##############################################################################################################################################################
 if __name__ == '__main__':
-    print monAvg(TEMP, 2013)
-    '''
-    # Demonstration of hourly results.
-    DATE = 2013021518
+    d = 2013021518
     #DATE = input('Enter date as yyyymmdd: ')
-    yyyy = int(DATE // 1e6)
-    mm = int((DATE % 1e6) // 1e4)
-    dd = int((DATE % 1e4) // 100)
+    yyyy = int(d // 1e6)
+    mm = int((d % 1e6) // 1e4)
+    dd = int((d % 1e4) // 100)
     indx_y = yyyy - YR_START
     indx_m = mm - 1
     indx_d = dd - 1
-
-    print '[Hourly] Plotting results...'
-    hrs = HOUR[indx_y][indx_m][indx_d]
-    tem = TEMP[indx_y][indx_m][indx_d]
-    cls = CLOUD[indx_y][indx_m][indx_d]
-    fig = figure('Hourly Temperature')
+    print mm
+    print monAvg(TEMP, yyyy), len(monAvg(TEMP, yyyy))  
+    
+    fig = figure()
     ax = fig.add_subplot(111)
-    ax2 = ax.twinx(); ax2.set_ylim(-1, 10)
-    ax.plot(hrs, tem, 'ro-', label='Temperature')
-    ax2.plot(hrs, cls, 'bo', label='Cloudiness')
-    ax.set_title('Hourly Temperature for %.4d-%.2d-%.2d' % (yyyy, mm, dd), fontweight='bold')
-    ax.set_xlabel('Time [hr]'); ax.set_ylabel('Temperature [$\\degree$C]')
-    ax2.set_ylabel('Cloudiness [octants]')
-    ax.set_xticks(range(25))
-    ax.legend(loc=(0.65,0.15)); ax2.legend(loc=(0.65, 0.05))
-    labels = [str(x) for x in range(25)]; labels[0] = ''
-    ax.set_xticklabels(labels)
-    #show()
-
-    # Demonstration of separate averages per part of the day.
-    yr = 2014; mnth = 7
-    n, m, a, e = monDayNightAvg(CLOUD, yr, mm=mnth)
-    fig = figure('Separated Monthly Cloud Coverage')
-    ax = fig.add_subplot(411)
-    ax2 = fig.add_subplot(412)
-    ax3 = fig.add_subplot(413)
-    ax4 = fig.add_subplot(414)
-    ax.set_title('Average Cloud Coverage by Part of the Day for %.4d-%.2d\nNight' % (yr, mnth), fontweight='bold')
-    ax.set_xlim(-1, 32); ax.set_ylim(-1, 9)
-    ax.get_xaxis().set_visible(False)
-    ax.plot(range(len(n)), n, 'go-', label='Night')
-    ax2.set_title('Morning', fontweight='bold')
-    ax2.plot(range(len(n)), m, 'bo-', label='Morning')
-    ax2.set_xlim(-1, 32); ax2.set_ylim(-1, 9)
-    ax2.get_xaxis().set_visible(False)
-    ax3.set_title('Afternoon', fontweight='bold')
-    ax3.plot(range(len(n)), a, 'ro-', label='Afternoon')
-    ax3.set_xlim(-1, 32); ax3.set_ylim(-1, 9)
-    ax3.get_xaxis().set_visible(False)
-    ax4.set_title('Evening', fontweight='bold')
-    ax4.plot(range(len(n)), e, 'co-', label='Evening')
-    ax4.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], len(n)+3))
-    ax4.set_xlim(-1, 32); ax4.set_ylim(-1, 9)
-    ax4.set_xlabel('Day'); ax4.set_ylabel('Cloud Coverage\n[octants]')
+    #ax.plot(range(12), monAvg(TEMP, yyyy))
+    #ax.set_ylim(-10, 30)
+    plot(ax, range(12), monAvg(TEMP, yyyy)[0], yerror=monAvg(TEMP,yyyy)[1], type='month', xlabel='Month', ylabel='Temperature $\\degree$C')
     show()
-    '''
