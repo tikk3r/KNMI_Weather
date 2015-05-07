@@ -5,7 +5,7 @@ from matplotlib.pyplot import figure, show
 import math
 import numpy as np
 
-DATE_M, HOUR_M, TEMP_M, CLOUD_M = [], [], [], []
+DATE, HOUR, TEMP, CLOUD = [], [], [], []
 YR_START = 0; YR_END = 0
 ###########################
 # Pre-use data reduction. #
@@ -79,55 +79,72 @@ def reduce_data():
             hour_m.append(hm)
             temp_m.append(tm)
             cloud_m.append(cm)
-    global DATE_M, HOUR_M, TEMP_M, CLOUD_M
+    global DATE, HOUR, TEMP, CLOUD
     global YR_START, YR_END
-    DATE_M = date_m; HOUR_M = hour_m; TEMP_M = temp_m; CLOUD_M = cloud_m
+    DATE = date_m; HOUR = hour_m; TEMP = temp_m; CLOUD = cloud_m
     YR_START = int(date[0] // 1e4); YR_END = int(date[len(date)-1] //1e4)
 
-def monDayNightAvg(data, yyyy, mm=-1):
+def monAvg(data, yyyy, mm=-1):
+    ''' Calculate the full monthly average.
+        Args:
+            ndarray data - array containing data to analyze. Should be accessible as data[year][month][day][hour]
+            float yyyy - the year in yyyy format.
+            float mm - the month in mm format, normally assumes all months.
+        Returns:
+            ndarray
+    '''
+    if mm < 0: # User wants all months.
+        mavg = []
+        for month in data[int(yyyy - YR_START)]:
+            davg = []
+            for day in month:
+                # Average of the day.
+                avg = np.nanmean(day); davg.append(avg)
+            # Average of the month.
+            mavg.append(np.nanmean(davg))
+        return np.asarray(mavg)
+    else: # User specifies a month.
+        # Select the required month.
+        dat = data[int(yyyy - YR_START)][mm]
+        davg = []
+        for day in dat:
+            # Daily average.
+            davg.append(np.nanmean(day))
+        # Average of the month.
+        mavg = np.asarray(np.nanmean(davg))
+        return mavg
+
+def monDayNightAvg(data, yyyy, mm=1):
     ''' Calculate monthly average for the day hours and for the night hours separately.
-    Gives the monthly average for the specified month. If month is set to -1 it will iterate over the given year and calculate the average for all months available.
+    Gives the monthly average for the specified month.
     Args:
         ndarray data - array containing data to analyze. Should be accessible as data[year][month][day][hour]
         float yyyy - the year in yyyy format.
-        float mm - the month in mm format, normally assumes all months.
+        float mm - the month in mm format, normally assumes january.
     Returns:
         ndarray/float nam - nightly average and standard deviation, 00-06.
         ndarray/float mam - morning average and standard deviation, 06-12.
         ndarray/float aam - afternoon average and standard deviation, 12-18.
         ndarray/float eam - evening average and standard deviation, 18-24
     '''
-    if mm < 0: # User wants all months.
-        nam, mam, aam, eam = [], [], [], []
-        nams, mams, aams, eams = [], [], [], []
-        for month in data[int(YR_END-yyyy)]:
-            nad, mad, aad, ead = [], [], [], []
-            for day in month:
-                na = np.nanmean(day[0:6]); nad.append(na)
-                ma = np.nanmean(day[6:12]); mad.append(ma)
-                aa = np.nanmean(day[12:18]); aad.append(aa)
-                ea = np.nanmean(day[18:24]); ead.append(ea)
-            nam.append(np.nanmean(nad))
-            mam.append(np.nanmean(mad))
-            aam.append(np.nanmean(aad))
-            eam.append(np.nanmean(ead))
-        return np.asarray(nam), np.asarray(mam), np.asarray(aam), np.asarray(eam)
-    else: # User specifies a month.
-        # Select the required month.
-        dat = data[int(YR_END - yyyy)][mm]
-        nad, mad, aad, ead = [], [], [], []
-        for day in dat:
-            na = np.nanmean(day[0:6]); nad.append(na)
-            ma = np.nanmean(day[6:12]); mad.append(ma)
-            aa = np.nanmean(day[12:18]); aad.append(aa)
-            ea = np.nanmean(day[18:24]); ead.append(ea)
-        return np.asarray(nad), np.asarray(mad), np.asarray(aad), np.asarray(ead)
+    # Select the required month.
+    dat = data[int(yyyy - YR_START)][mm]
+    nad, mad, aad, ead = [], [], [], []
+    for day in dat:
+        na = np.nanmean(day[0:6]); nad.append(na)
+        ma = np.nanmean(day[6:12]); mad.append(ma)
+        aa = np.nanmean(day[12:18]); aad.append(aa)
+        ea = np.nanmean(day[18:24]); ead.append(ea)
+    return np.asarray(nad), np.asarray(mad), np.asarray(aad), np.asarray(ead)
         
 reduce_data()
+print YR_END - 2013
 ##############################################################################################################################################################
 # Data processing finished. Access the data as date_m[year][month][day] or variable[year][month][day][hour] where variable can be hour_m, temp_m or cloud_m. #
 ##############################################################################################################################################################
 if __name__ == '__main__':
+    print monAvg(TEMP, 2013)
+    '''
     # Demonstration of hourly results.
     DATE = 2013021518
     #DATE = input('Enter date as yyyymmdd: ')
@@ -139,9 +156,9 @@ if __name__ == '__main__':
     indx_d = dd - 1
 
     print '[Hourly] Plotting results...'
-    hrs = HOUR_M[indx_y][indx_m][indx_d]
-    tem = TEMP_M[indx_y][indx_m][indx_d]
-    cls = CLOUD_M[indx_y][indx_m][indx_d]
+    hrs = HOUR[indx_y][indx_m][indx_d]
+    tem = TEMP[indx_y][indx_m][indx_d]
+    cls = CLOUD[indx_y][indx_m][indx_d]
     fig = figure('Hourly Temperature')
     ax = fig.add_subplot(111)
     ax2 = ax.twinx(); ax2.set_ylim(-1, 10)
@@ -157,8 +174,8 @@ if __name__ == '__main__':
     #show()
 
     # Demonstration of separate averages per part of the day.
-    yr = 2014; mnth = -1
-    n, m, a, e = monDayNightAvg(CLOUD_M, yr, mm=mnth)
+    yr = 2014; mnth = 7
+    n, m, a, e = monDayNightAvg(CLOUD, yr, mm=mnth)
     fig = figure('Separated Monthly Cloud Coverage')
     ax = fig.add_subplot(411)
     ax2 = fig.add_subplot(412)
@@ -182,3 +199,4 @@ if __name__ == '__main__':
     ax4.set_xlim(-1, 32); ax4.set_ylim(-1, 9)
     ax4.set_xlabel('Day'); ax4.set_ylabel('Cloud Coverage\n[octants]')
     show()
+    '''
