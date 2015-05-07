@@ -84,7 +84,7 @@ def reduce_data():
     DATE_M = date_m; HOUR_M = hour_m; TEMP_M = temp_m; CLOUD_M = cloud_m
     YR_START = int(date[0] // 1e4); YR_END = int(date[len(date)-1] //1e4)
 
-def monDayNightAvg(data, yyyy, mm=-1, yr_start=2010, yr_end=2015):
+def monDayNightAvg(data, yyyy, mm=-1):
     ''' Calculate monthly average for the day hours and for the night hours separately.
     Gives the monthly average for the specified month. If month is set to -1 it will iterate over the given year and calculate the average for all months available.
     Args:
@@ -100,7 +100,7 @@ def monDayNightAvg(data, yyyy, mm=-1, yr_start=2010, yr_end=2015):
     if mm < 0: # User wants all months.
         nam, mam, aam, eam = [], [], [], []
         nams, mams, aams, eams = [], [], [], []
-        for month in data[int(yr_end-yyyy)]:
+        for month in data[int(YR_END-yyyy)]:
             nad, mad, aad, ead = [], [], [], []
             for day in month:
                 na = np.nanmean(day[0:6]); nad.append(na)
@@ -114,7 +114,7 @@ def monDayNightAvg(data, yyyy, mm=-1, yr_start=2010, yr_end=2015):
         return np.asarray(nam), np.asarray(mam), np.asarray(aam), np.asarray(eam)
     else: # User specifies a month.
         # Select the required month.
-        dat = data[int(yr_end - yyyy)][mm]
+        dat = data[int(YR_END - yyyy)][mm]
         nad, mad, aad, ead = [], [], [], []
         for day in dat:
             na = np.nanmean(day[0:6]); nad.append(na)
