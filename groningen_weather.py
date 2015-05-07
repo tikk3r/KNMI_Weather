@@ -85,6 +85,10 @@ def reduce_data():
     DATE = date_m; HOUR = hour_m; TEMP = temp_m; CLOUD = cloud_m
     YR_START = int(date[0] // 1e4); YR_END = int(date[len(date)-1] //1e4)
 
+def hourAvg(data, yyyy, mm=1, dd=1, hh=-1):
+    if hh < 0:
+        # Take all hours for specified day.
+
 def dayAvg(data, yyyy, mm=1, dd=-1):
     ''' Calculate the daily average.
     Assumes january and all days by default.
@@ -182,18 +186,23 @@ def plot(ax, x, y, type, yerror=None, title='', xlabel='', ylabel='', format='o-
     Returns:
         None
     '''
+    ax.set_title(title, fontweight='bold')
+    ax.set_xlabel(xlabel); ax.set_ylabel(ylabel)
     if type == 'year':
         pass
     elif type == 'month':
-        ax.set_xlim(-1, 13); ax.set_ylim(-10, 30)
-        ax.set_title(title)
+        ax.set_xlim(-1, 13)
         ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], 15))
         ax.set_xticklabels(month_labels)
-        ax.set_xlabel(xlabel); ax.set_ylabel(ylabel)
-        if yerror is not None:
-            ax.errorbar(x, y, yerr=yerror, fmt=format)
-        else:
-            ax.plot(x, y, format)
+    elif type == 'day':
+        ax.set_xlim(-1, 32)
+        ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], len(y)+3))
+    else:
+        print '[plot] Please specify a correct type.'
+    if yerror is not None:
+        ax.errorbar(x, y, yerr=yerror, fmt=format)
+    else:
+        ax.plot(x, y, format)
 ############
 
 reduce_data()
@@ -210,10 +219,13 @@ if __name__ == '__main__':
     indx_m = mm - 1
     indx_d = dd - 1
    
-    print dayAvg(TEMP, yyyy, mm=mm, dd=dd)[0]
+    print len(dayAvg(TEMP, yyyy, mm=mm)[0])
     fig = figure()
     ax = fig.add_subplot(111)
     #ax.plot(range(12), monAvg(TEMP, yyyy))
     #ax.set_ylim(-10, 30)
-    plot(ax, range(12), monAvg(TEMP, yyyy)[0], yerror=monAvg(TEMP,yyyy)[1], type='month', xlabel='Month', ylabel='Temperature $\\degree$C')
-    #show()
+    plot(ax, range(12), monAvg(TEMP, yyyy)[0], yerror=monAvg(TEMP,yyyy)[1], type='month',title='Monthly Average for %.4d'%yyyy, xlabel='Month', ylabel='Temperature $\\degree$C')
+    fig2 = figure()
+    ax2 = fig2.add_subplot(111)
+    plot(ax2, range(len(dayAvg(TEMP, yyyy, mm=mm)[0])), dayAvg(TEMP, yyyy, mm=mm)[0], type='day')
+    show()
