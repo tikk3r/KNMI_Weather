@@ -23,10 +23,10 @@ def reduce_data():
     date, hour, temp, cloud = np.genfromtxt('./KNMI_20150424_hourly.txt', delimiter=',', filling_values=None, skip_header=14, usecols=(1,2,3,4), unpack=True)
     # Convert temperatures to celcius.
     temp /= 10
-    print '[Hourly] Grouping data by hour...'
+    print 'Grouping data by hour...'
 
     # Group the data per year: date = [year1, year2, ...] > year = [hour1, hour2, ...]
-    print '[Hourly] Grouping data by year...'
+    print 'Grouping data by year...'
     date_y, hours_y, temp_y, cloud_y = [], [], [], []
     dy, hy, ty, cy = [], [], [], []
     nyear = date[0]//1e4 + 1
@@ -43,7 +43,7 @@ def reduce_data():
     date_y.append(dy); hours_y.append(hy); temp_y.append(ty); cloud_y.append(cy)
 
     # Group the data by hour: data = [year1, year2, ...] > year = [day1, day2, ...] > day = [hour1, hour2, ...]
-    print '[Hourly] Grouping data by hour...'
+    print 'Grouping data by hour...'
     date_h, hour_h, temp_h, cloud_h = [], [], [] ,[]
     for k, yr in enumerate(date_y):
         dh, hh, th, ch = [], [], [] ,[]
@@ -55,7 +55,7 @@ def reduce_data():
         date_h.append(dh); hour_h.append(hh); temp_h.append(th); cloud_h.append(ch)
 
     # Group the data by month: data = [year1, year2, ...] > year = [month1, month2, ...] > month = [day1, day2, ...] > day = [hour1, hour2, ...]
-    print '[Hourly] Grouping data by month...'
+    print 'Grouping data by month...'
     date_m, hour_m, temp_m, cloud_m = [], [] ,[], []
     for i, yr in enumerate(date_h):
         dm, hm, tm, cm = [], [], [] ,[]
@@ -85,9 +85,24 @@ def reduce_data():
     DATE = date_m; HOUR = hour_m; TEMP = temp_m; CLOUD = cloud_m
     YR_START = int(date[0] // 1e4); YR_END = int(date[len(date)-1] //1e4)
 
-def hourAvg(data, yyyy, mm=1, dd=1, hh=-1):
+def hourDat(data, yyyy, mm=1, dd=1, hh=-1):
+    ''' Provides the hourly data of a day or of one specific hour.
+    Args:
+        ndarray data - data to search.
+        int yyyy - year to get.
+        int mm - month to get.
+        int dd - day to get.
+        int hh - hour to get.
+    Returns:
+        ndarray/float dat - array with data for all hours or float with data specific to the hour hh.
+    '''
     if hh < 0:
         # Take all hours for specified day.
+        dat = data[yyyy - YR_START][mm-1][dd-1]
+        return dat
+    elif 1 < hh < 24:
+        dat = data[yyyy - YR_START][mm-1][dd-1][hh-1]
+        return dat
 
 def dayAvg(data, yyyy, mm=1, dd=-1):
     ''' Calculate the daily average.
@@ -113,7 +128,7 @@ def dayAvg(data, yyyy, mm=1, dd=-1):
         return np.asarray(davg), np.asarray(dstd)
     else:
         # Take the specific day.
-        dat = data[yyyy - YR_START][mm-1][dd]
+        dat = data[yyyy - YR_START][mm-1][dd-1]
         davg = np.nanmean(dat)
         dstd = np.nanstd(dat)
         return davg, dstd
@@ -197,6 +212,9 @@ def plot(ax, x, y, type, yerror=None, title='', xlabel='', ylabel='', format='o-
     elif type == 'day':
         ax.set_xlim(-1, 32)
         ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], len(y)+3))
+    elif type == 'hour':
+        ax.set_xlim(-1, 25)
+        ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], len(y)+3))
     else:
         print '[plot] Please specify a correct type.'
     if yerror is not None:
@@ -219,7 +237,6 @@ if __name__ == '__main__':
     indx_m = mm - 1
     indx_d = dd - 1
    
-    print len(dayAvg(TEMP, yyyy, mm=mm)[0])
     fig = figure()
     ax = fig.add_subplot(111)
     #ax.plot(range(12), monAvg(TEMP, yyyy))
@@ -228,4 +245,7 @@ if __name__ == '__main__':
     fig2 = figure()
     ax2 = fig2.add_subplot(111)
     plot(ax2, range(len(dayAvg(TEMP, yyyy, mm=mm)[0])), dayAvg(TEMP, yyyy, mm=mm)[0], type='day')
+    fig3 = figure()
+    ax3 = fig3.add_subplot(111)
+    plot(ax3, range(len(hourDat(TEMP, yyyy, mm=mm))), hourDat(TEMP, yyyy, mm=mm), type='hour')
     show()
