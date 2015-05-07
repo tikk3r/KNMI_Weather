@@ -85,6 +85,11 @@ def reduce_data():
     DATE = date_m; HOUR = hour_m; TEMP = temp_m; CLOUD = cloud_m
     YR_START = int(date[0] // 1e4); YR_END = int(date[len(date)-1] //1e4)
 
+def dayAvg(data, yyyy, mm=1, dd=-1):
+    ''' Calculate the daily average.
+    '''
+    # Prepare the data we need.
+    dat = data[yyyy - YR_START][mm-1]
 
 def monAvg(data, yyyy, mm=-1):
     ''' Calculate the full monthly average.
@@ -109,7 +114,7 @@ def monAvg(data, yyyy, mm=-1):
         return np.asarray(mavgmean), np.asarray(mavgstd)
     else: # User specifies a month.
         # Select the required month.
-        dat = data[int(yyyy - YR_START)][mm]
+        dat = data[int(yyyy - YR_START)][mm-1]
         davg = []
         for day in dat:
             # Daily average.
@@ -133,7 +138,7 @@ def monDayNightAvg(data, yyyy, mm=1):
         ndarray/float eam - evening average and standard deviation, 18-24
     '''
     # Select the required month.
-    dat = data[int(yyyy - YR_START)][mm]
+    dat = data[int(yyyy - YR_START)][mm-1]
     nad, mad, aad, ead = [], [], [], []
     for day in dat:
         na = np.nanmean(day[0:6]); nad.append(na)
