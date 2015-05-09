@@ -8,6 +8,7 @@ import numpy as np
 DATE, HOUR, TEMP, CLOUD = [], [], [], []
 YR_START = 0; YR_END = 0
 month_labels = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+hour_labels = [''] + range(1, 25)
 ###########################
 # Pre-use data reduction. #
 ###########################
@@ -85,7 +86,7 @@ def reduce_data():
     DATE = date_m; HOUR = hour_m; TEMP = temp_m; CLOUD = cloud_m
     YR_START = int(date[0] // 1e4); YR_END = int(date[len(date)-1] //1e4)
 
-def hourDat(data, yyyy, mm=1, dd=1, hh=-1):
+def hourDat(data, yyyy, mm=1, dd=1, hh=0):
     ''' Provides the hourly data of a day or of one specific hour.
     Args:
         ndarray data - data to search.
@@ -96,7 +97,7 @@ def hourDat(data, yyyy, mm=1, dd=1, hh=-1):
     Returns:
         ndarray/float dat - array with data for all hours or float with data specific to the hour hh.
     '''
-    if hh < 0:
+    if hh == 0:
         # Take all hours for specified day.
         dat = data[yyyy - YR_START][mm-1][dd-1]
         return dat
@@ -104,7 +105,7 @@ def hourDat(data, yyyy, mm=1, dd=1, hh=-1):
         dat = data[yyyy - YR_START][mm-1][dd-1][hh-1]
         return dat
 
-def dayAvg(data, yyyy, mm=1, dd=-1):
+def dayAvg(data, yyyy, mm=1, dd=0):
     ''' Calculate the daily average.
     Assumes january and all days by default.
     Args:
@@ -116,7 +117,7 @@ def dayAvg(data, yyyy, mm=1, dd=-1):
         ndarray/float davg - average of the day.
         ndarray/float dstd - standard deviation of the day.
     '''
-    if dd < 0:
+    if dd == 0:
         # Take all days for the specified month.
         dat = data[yyyy - YR_START][mm-1]
         davg = []; dstd = []
@@ -133,7 +134,7 @@ def dayAvg(data, yyyy, mm=1, dd=-1):
         dstd = np.nanstd(dat)
         return davg, dstd
 
-def monAvg(data, yyyy, mm=-1):
+def monAvg(data, yyyy, mm=00):
     ''' Calculate the full monthly average.
         Args:
             ndarray data - array containing data to analyze. Should be accessible as data[year][month][day][hour]
@@ -143,7 +144,7 @@ def monAvg(data, yyyy, mm=-1):
             ndarray/float mavgmean - monthly averages.
             ndarray/float mavgstd - standard deviation of the monthly averages.
     '''
-    if mm < 0: # User wants all months.
+    if mm == 0: # User wants all months.
         mavgmean = []; mavgstd = []
         for month in data[int(yyyy - YR_START)]:
             davg = []
@@ -189,8 +190,8 @@ def monDayNightAvg(data, yyyy, mm=1):
         ea = np.nanmean(day[18:24]); ead.append(ea)
     return np.asarray(nad), np.asarray(mad), np.asarray(aad), np.asarray(ead)
 
-def plot(ax, x, y, type, yerror=None, title='', xlabel='', ylabel='', format='o-'):
-    ''' Eases the plotting of data by helping with the axes formatting.
+def plot(ax, x, y, type, yerror=None, title='', ylabel='', formt='o-', leg=False):
+    ''' Eases the plotting of data by helping with the axes formtting.
     Args:
         Axis ax - the axis to plot on.
         ndarray x - independent variable.
@@ -202,50 +203,75 @@ def plot(ax, x, y, type, yerror=None, title='', xlabel='', ylabel='', format='o-
         None
     '''
     ax.set_title(title, fontweight='bold')
-    ax.set_xlabel(xlabel); ax.set_ylabel(ylabel)
+    ax.set_ylabel(ylabel)
     if type == 'year':
-        pass
-    elif type == 'month':
         ax.set_xlim(-1, 13)
         ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], 15))
         ax.set_xticklabels(month_labels)
-    elif type == 'day':
+        ax.set_label('Month')
+    elif type == 'month':
         ax.set_xlim(-1, 32)
-        ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], len(y)+3))
-    elif type == 'hour':
+        day_labels = range(1, len(x)+1)
+        ax.xaxis.set_ticks(day_labels)
+        ax.plot(np.asarray(x)+1, y, formt)
+        ax.set_xlabel('Day')
+        return
+    elif type == 'day':
         ax.set_xlim(-1, 25)
         ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], len(y)+3))
+        ax.set_xticklabels(hour_labels)
+        ax.set_xlabel('Hour')
     else:
         print '[plot] Please specify a correct type.'
     if yerror is not None:
-        ax.errorbar(x, y, yerr=yerror, fmt=format)
+        ax.errorbar(x, y, yerr=yerror, fmt=formt)
     else:
-        ax.plot(x, y, format)
-############
+        ax.plot(x, y, formt)
+    if leg:
+        ax.legend()
 
-reduce_data()
 ##############################################################################################################################################################
 # Data processing finished. Access the data as date_m[year][month][day] or variable[year][month][day][hour] where variable can be hour_m, temp_m or cloud_m. #
 ##############################################################################################################################################################
+reduce_data()
 if __name__ == '__main__':
-    d = 2013021518
-    #DATE = input('Enter date as yyyymmdd: ')
-    yyyy = int(d // 1e6)
-    mm = int((d % 1e6) // 1e4)
-    dd = int((d % 1e4) // 100)
-    indx_y = yyyy - YR_START
-    indx_m = mm - 1
-    indx_d = dd - 1
+    d = '2013021518'
+    print 'To use all available data use 00, e.g. 20121200 takes all days of december 2012.'
+    d = raw_input('Enter date as yyyymmdd or yyyymmddhh.: ')
+    data_set = input('Select Data Set (TEMP or CLOUD): ')
+    while 1:
+        if len(d) == 10: # yyyymmddhh
+            d = eval(d)
+            yyyy = int(d // 1e6)
+            mm = int((d % 1e6) // 1e4)
+            dd = int((d % 1e4) // 100)
+            hh = int((d % 1e2))
+            indx_h = hh - 1
+            break
+        if len(d) == 8: # yyyymmdd
+            d = eval(d)
+            yyyy = int(d // 1e4)
+            mm = int((d % 1e4) // 100)
+            dd = int((d % 100))
+            print yyyy, mm, dd
+            break
+        print '[Error] Enter a valid date.'
+        d = raw_input('Enter date as yyyy, yyyymm, yyyymmdd or yyyymmddhh: ')
+    #indx_y = yyyy - YR_START
+    #indx_m = mm - 1
+    #indx_d = dd - 1
    
     fig = figure()
     ax = fig.add_subplot(111)
     #ax.plot(range(12), monAvg(TEMP, yyyy))
     #ax.set_ylim(-10, 30)
-    plot(ax, range(12), monAvg(TEMP, yyyy)[0], yerror=monAvg(TEMP,yyyy)[1], type='month',title='Monthly Average for %.4d'%yyyy, xlabel='Month', ylabel='Temperature $\\degree$C')
+    print (monAvg(TEMP, yyyy)[0])
+    print (monAvg(TEMP, yyyy)[1])
+    plot(ax, range(12), monAvg(data_set, yyyy)[0], yerror=monAvg(data_set,yyyy)[1], type='year',title='Monthly Average for %.4d'%yyyy, ylabel='Temperature $\\degree$C')
     fig2 = figure()
     ax2 = fig2.add_subplot(111)
-    plot(ax2, range(len(dayAvg(TEMP, yyyy, mm=mm)[0])), dayAvg(TEMP, yyyy, mm=mm)[0], type='day')
+    plot(ax2, range(len(dayAvg(TEMP, yyyy, mm=mm)[0])), dayAvg(TEMP, yyyy, mm=mm)[0], type='month')
     fig3 = figure()
     ax3 = fig3.add_subplot(111)
-    plot(ax3, range(len(hourDat(TEMP, yyyy, mm=mm))), hourDat(TEMP, yyyy, mm=mm), type='hour')
+    plot(ax3, range(len(hourDat(TEMP, yyyy, mm=mm))), hourDat(TEMP, yyyy, mm=mm), type='day')
     show()
