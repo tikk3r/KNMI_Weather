@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import division
-from matplotlib.pyplot import figure, show
-
+import cgitb; cgitb.enable()
+import cgi
 import math
 import numpy as np
 
@@ -9,6 +9,15 @@ DATE, HOUR, TEMP, CLOUD = [], [], [], []
 YR_START = 0; YR_END = 0
 month_labels = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 hour_labels = [''] + range(1, 25)
+
+# Define a substitute for numpy's nanmean and nanstd functions.
+def nanmean(arr):
+    x = np.ma.MaskedArray(arr, np.isnan(arr))
+    return np.mean(x)
+
+def nanstd(arr):
+    x = np.ma.MaskedArray(arr, np.isnan(arr))
+    return np.std(x)
 ###########################
 # Pre-use data reduction. #
 ###########################
@@ -20,14 +29,11 @@ def reduce_data():
     Returns:
         None
     '''
-    print 'Processing hourly data.'
-    date, hour, temp, cloud = np.genfromtxt('./KNMI_20150424_hourly.txt', delimiter=',', filling_values=None, skip_header=14, usecols=(1,2,3,4), unpack=True)
+    date, hour, temp, cloud = np.genfromtxt('./KNMI_hourly.txt', delimiter=',', filling_values=None, skip_header=14, usecols=(1,2,3,4), unpack=True)
     # Convert temperatures to celcius.
     temp /= 10
-    print 'Grouping data by hour...'
 
     # Group the data per year: date = [year1, year2, ...] > year = [hour1, hour2, ...]
-    print 'Grouping data by year...'
     date_y, hours_y, temp_y, cloud_y = [], [], [], []
     dy, hy, ty, cy = [], [], [], []
     nyear = date[0]//1e4 + 1
@@ -44,7 +50,6 @@ def reduce_data():
     date_y.append(dy); hours_y.append(hy); temp_y.append(ty); cloud_y.append(cy)
 
     # Group the data by hour: data = [year1, year2, ...] > year = [day1, day2, ...] > day = [hour1, hour2, ...]
-    print 'Grouping data by hour...'
     date_h, hour_h, temp_h, cloud_h = [], [], [] ,[]
     for k, yr in enumerate(date_y):
         dh, hh, th, ch = [], [], [] ,[]
@@ -56,7 +61,6 @@ def reduce_data():
         date_h.append(dh); hour_h.append(hh); temp_h.append(th); cloud_h.append(ch)
 
     # Group the data by month: data = [year1, year2, ...] > year = [month1, month2, ...] > month = [day1, day2, ...] > day = [hour1, hour2, ...]
-    print 'Grouping data by month...'
     date_m, hour_m, temp_m, cloud_m = [], [] ,[], []
     for i, yr in enumerate(date_h):
         dm, hm, tm, cm = [], [], [] ,[]
@@ -122,16 +126,16 @@ def dayAvg(data, yyyy, mm=1, dd=0):
         dat = data[yyyy - YR_START][mm-1]
         davg = []; dstd = []
         for day in dat:
-            avg = np.nanmean(day)
-            std = np.nanstd(day)
+            avg = nanmean(day)
+            std = nanstd(day)
             davg.append(avg)
             dstd.append(std)
         return np.asarray(davg), np.asarray(dstd)
     else:
         # Take the specific day.
         dat = data[yyyy - YR_START][mm-1][dd-1]
-        davg = np.nanmean(dat)
-        dstd = np.nanstd(dat)
+        davg = nanmean(dat)
+        dstd = nanstd(dat)
         return davg, dstd
 
 def monAvg(data, yyyy, mm=00):
@@ -150,10 +154,10 @@ def monAvg(data, yyyy, mm=00):
             davg = []
             for day in month:
                 # Average of the day.
-                avg = np.nanmean(day); davg.append(avg)
+                avg = nanmean(day); davg.append(avg)
             # Average of the month.
-            mavgmean.append(np.nanmean(davg))
-            mavgstd.append(np.nanstd(davg))
+            mavgmean.append(nanmean(davg))
+            mavgstd.append(nanstd(davg))
         return np.asarray(mavgmean), np.asarray(mavgstd)
     else: # User specifies a month.
         # Select the required month.
@@ -161,10 +165,10 @@ def monAvg(data, yyyy, mm=00):
         davg = []
         for day in dat:
             # Daily average.
-            davg.append(np.nanmean(day))
+            davg.append(nanmean(day))
         # Average of the month.
-        mavgmean = np.asarray(np.nanmean(davg))
-        mavgstd = np.asarray(np.nanstd(davg))
+        mavgmean = np.asarray(nanmean(davg))
+        mavgstd = np.asarray(nanstd(davg))
         return mavgmean, mavgstd
 
 def monDayNightAvg(data, yyyy, mm=1):
@@ -184,19 +188,18 @@ def monDayNightAvg(data, yyyy, mm=1):
     dat = data[int(yyyy - YR_START)][mm-1]
     nad, mad, aad, ead = [], [], [], []
     for day in dat:
-        na = np.nanmean(day[0:6]); nad.append(na)
-        ma = np.nanmean(day[6:12]); mad.append(ma)
-        aa = np.nanmean(day[12:18]); aad.append(aa)
-        ea = np.nanmean(day[18:24]); ead.append(ea)
+        na = nanmean(day[0:6]); nad.append(na)
+        ma = nanmean(day[6:12]); mad.append(ma)
+        aa = nanmean(day[12:18]); aad.append(aa)
+        ea = nanmean(day[18:24]); ead.append(ea)
     return np.asarray(nad), np.asarray(mad), np.asarray(aad), np.asarray(ead)
 
-def plot(ax, x, y, type, yerror=None, title='', ylabel='', formt='o-', leg=False):
+def plot(ax, y, typ, yerror=None, title='', ylabel='', formt='o-', leg=False):
     ''' Eases the plotting of data by helping with the axes formtting.
     Args:
         Axis ax - the axis to plot on.
-        ndarray x - independent variable.
         ndarray y - dependend variable.
-        str type - type of data to plot. Can be year, month or day.
+        str typ - type of data to plot. Can be year, month or day.
         xlabel - text for the xaxis.
         ylabel - text for the yaxis.
     Returns:
@@ -204,28 +207,29 @@ def plot(ax, x, y, type, yerror=None, title='', ylabel='', formt='o-', leg=False
     '''
     ax.set_title(title, fontweight='bold')
     ax.set_ylabel(ylabel)
-    if type == 'year':
+    if typ == 'year':
+        x = range(12)
         ax.set_xlim(-1, 13)
         ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], 15))
         ax.set_xticklabels(month_labels)
         ax.set_label('Month')
-    elif type == 'month':
+    elif typ == 'month':
         ax.set_xlim(-1, 32)
-        day_labels = range(1, len(x)+1)
+        day_labels = range(1, len(y)+1)
         ax.xaxis.set_ticks(day_labels)
-        ax.plot(np.asarray(x)+1, y, formt)
         ax.set_xlabel('Day')
-        return
-    elif type == 'day':
+    elif typ == 'day':
         ax.set_xlim(-1, 25)
         ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], len(y)+3))
         ax.set_xticklabels(hour_labels)
         ax.set_xlabel('Hour')
     else:
-        print '[plot] Please specify a correct type.'
+        print '[plot] Please specify a correct typ.'
     if yerror is not None:
+        x = range(len(y))
         ax.errorbar(x, y, yerr=yerror, fmt=formt)
     else:
+        x = range(len(y))
         ax.plot(x, y, formt)
     if leg:
         ax.legend()
@@ -233,8 +237,9 @@ def plot(ax, x, y, type, yerror=None, title='', ylabel='', formt='o-', leg=False
 ##############################################################################################################################################################
 # Data processing finished. Access the data as date_m[year][month][day] or variable[year][month][day][hour] where variable can be hour_m, temp_m or cloud_m. #
 ##############################################################################################################################################################
-reduce_data()
 if __name__ == '__main__':
+    from matplotlib.pyplot import figure, show
+    reduce_data()
     d = '2013021518'
     print 'To use all available data use 00, e.g. 20121200 takes all days of december 2012.'
     d = raw_input('Enter date as yyyymmdd or yyyymmddhh.: ')
@@ -265,13 +270,13 @@ if __name__ == '__main__':
     ax = fig.add_subplot(111)
     #ax.plot(range(12), monAvg(TEMP, yyyy))
     #ax.set_ylim(-10, 30)
-    print (monAvg(TEMP, yyyy)[0])
-    print (monAvg(TEMP, yyyy)[1])
-    plot(ax, range(12), monAvg(data_set, yyyy)[0], yerror=monAvg(data_set,yyyy)[1], type='year',title='Monthly Average for %.4d'%yyyy, ylabel='Temperature $\\degree$C')
-    fig2 = figure()
-    ax2 = fig2.add_subplot(111)
-    plot(ax2, range(len(dayAvg(TEMP, yyyy, mm=mm)[0])), dayAvg(TEMP, yyyy, mm=mm)[0], type='month')
-    fig3 = figure()
-    ax3 = fig3.add_subplot(111)
-    plot(ax3, range(len(hourDat(TEMP, yyyy, mm=mm))), hourDat(TEMP, yyyy, mm=mm), type='day')
+    print len(monAvg(TEMP, yyyy)[0])
+    print len(monAvg(TEMP, yyyy)[1])
+    plot(ax, monAvg(data_set, yyyy)[0], yerror=monAvg(data_set,yyyy)[1], typ='year',title='Monthly Average for %.4d'%yyyy, ylabel='Temperature $\\degree$C')
+    #fig2 = figure()
+    #ax2 = fig2.add_subplot(111)
+    #plot(ax2, range(len(dayAvg(TEMP, yyyy, mm=mm)[0])), dayAvg(TEMP, yyyy, mm=mm)[0], type='month')
+    #fig3 = figure()
+    #ax3 = fig3.add_subplot(111)
+    #plot(ax3, range(len(hourDat(TEMP, yyyy, mm=mm))), hourDat(TEMP, yyyy, mm=mm), type='day')
     show()
