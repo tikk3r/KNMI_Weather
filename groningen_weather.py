@@ -10,7 +10,7 @@ YR_START = 0; YR_END = 0
 month_labels = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 hour_labels = [''] + range(1, 25)
 
-# Define a substitute for numpy's nanmean and nanstd functions.
+# Define a substitute for numpy's nan avoiding functions.
 def nanmean(arr):
     x = np.ma.MaskedArray(arr, np.isnan(arr))
     return np.mean(x)
@@ -18,6 +18,14 @@ def nanmean(arr):
 def nanstd(arr):
     x = np.ma.MaskedArray(arr, np.isnan(arr))
     return np.std(x)
+
+def nanmin(arr):
+    x = np.ma.MaskedArray(arr, np.isnan(arr))
+    return np.min(x)
+
+def nanmax(arr):
+    x = np.ma.MaskedArray(arr, np.isnan(arr))
+    return np.max(x)
 ###########################
 # Pre-use data reduction. #
 ###########################
@@ -100,14 +108,42 @@ def hourDat(data, yyyy, mm=1, dd=1, hh=0):
         int hh - hour to get.
     Returns:
         ndarray/float dat - array with data for all hours or float with data specific to the hour hh.
+        float 0 - dummy result used for easier plotting in combination with the web interface.
     '''
     if hh == 0:
         # Take all hours for specified day.
         dat = data[yyyy - YR_START][mm-1][dd-1]
-        return dat
+        return dat, 0
     elif 1 < hh < 24:
         dat = data[yyyy - YR_START][mm-1][dd-1][hh-1]
-        return dat
+        return dat, 0
+
+def dayMax(data, yyyy, mm=1, dd=0):
+    ''' Calculate the daily maximum.
+    Assumes january and all days by default.
+    Args:
+        ndarray data - data to be analyzed.
+        int yyyy - the year.
+        int mm - the month.
+        int dd - the day.
+    Returns:
+        ndarray/float dmax - maximum of the day.
+        ndarray/float dstd - standard deviation of the day.
+    '''
+    if dd == 0:
+        # Take all days for the specified month.
+        dat = data[yyyy - YR_START][mm-1]
+        dmax = []
+        for day in dat:
+            max = nanmax(day)
+            dmax.append(max)
+        return np.asarray(dmax), np.zeros(len(dmax))# Fake standard deviation.
+    else:
+        # Take the specific day.
+        dat = data[yyyy - YR_START][mm-1][dd-1]
+        dmax = nanmax(dat)
+        dstd = 0
+        return dmax, dstd
 
 def dayAvg(data, yyyy, mm=1, dd=0):
     ''' Calculate the daily average.
@@ -137,6 +173,65 @@ def dayAvg(data, yyyy, mm=1, dd=0):
         davg = nanmean(dat)
         dstd = nanstd(dat)
         return davg, dstd
+
+def dayMin(data, yyyy, mm=1, dd=0):
+    ''' Calculate the daily minimum.
+    Assumes january and all days by default.
+    Args:
+        ndarray data - data to be analyzed.
+        int yyyy - the year.
+        int mm - the month.
+        int dd - the day.
+    Returns:
+        ndarray/float dmin - minimum of the day.
+        ndarray/float dstd - standard deviation of the day.
+    '''
+    if dd == 0:
+        # Take all days for the specified month.
+        dat = data[yyyy - YR_START][mm-1]
+        dmin = []
+        for day in dat:
+            min = nanmin(day)
+            dmin.append(min)
+        return np.asarray(dmin), np.zeros(len(dmin))# Fake standard deviation.
+    else:
+        # Take the specific day.
+        dat = data[yyyy - YR_START][mm-1][dd-1]
+        dmin = nanmin(dat)
+        dstd = 0
+        return dmin, dstd
+
+def monMin(data, yyyy, mm=00):
+    ''' Calculate the full monthly minimum.
+        Args:
+            ndarray data - array containing data to analyze. Should be accessible as data[year][month][day][hour]
+            float yyyy - the year in yyyy format.
+            float mm - the month in mm format, normally assumes all months.
+        Returns:
+            ndarray/float mminmean - monthly minima.
+            ndarray/float mminstd - fake standard deviation of the monthly minimum to ease plotting automization.
+    '''
+    if mm == 0: # User wants all months.
+        mminmean = []
+        for month in data[int(yyyy - YR_START)]:
+            dmin = []
+            for day in month:
+                # Average of the day.
+                min = nanmin(day); dmin.append(min)
+            # Average of the month.
+            mminmean.append(nanmean(dmin))
+        return np.asarray(mminmean), np.zeros(len(mminmean))
+    else: # User specifies a month.
+        # Select the required month.
+        dat = data[int(yyyy - YR_START)][mm-1]
+        dmin = []
+        for day in dat:
+            # Daily average.
+            dmin.append(nanmin(day))
+        # Average of the month.
+        mminmean = nanmin(dmin)
+        mminstd = 0
+        return mminmean, mminstd
 
 def monAvg(data, yyyy, mm=00):
     ''' Calculate the full monthly average.
@@ -171,6 +266,61 @@ def monAvg(data, yyyy, mm=00):
         mavgstd = np.asarray(nanstd(davg))
         return mavgmean, mavgstd
 
+def monMax(data, yyyy, mm=00):
+    ''' Calculate the full monthly maximum.
+        Args:
+            ndarray data - array containing data to analyze. Should be accessible as data[year][month][day][hour]
+            float yyyy - the year in yyyy format.
+            float mm - the month in mm format, normally assumes all months.
+        Returns:
+            ndarray/float mmaxmean - monthly maxima.
+            ndarray/float mmaxstd - fake standard deviation of the monthly maximum to ease plotting automization.
+    '''
+    if mm == 0: # User wants all months.
+        mmaxmean = []
+        for month in data[int(yyyy - YR_START)]:
+            dmax = []
+            for day in month:
+                # Average of the day.
+                max = nanmax(day); dmax.append(max)
+            # Average of the month.
+            mmaxmean.append(nanmean(dmax))
+        return np.asarray(mmaxmean), np.zeros(len(mmaxmean))
+    else: # User specifies a month.
+        # Select the required month.
+        dat = data[int(yyyy - YR_START)][mm-1]
+        dmax = []
+        for day in dat:
+            # Daily average.
+            dmax.append(nanmax(day))
+        # Average of the month.
+        mmaxmean = nanmax(dmax)
+        mmaxstd = 0
+        return mmaxmean, mmaxstd
+
+def monDayNightMin(data, yyyy, mm=1):
+    ''' Calculate monthly minimum for the day hours and for the night hours separately.
+    Gives the monthly average for the specified month.
+    Args:
+        ndarray data - array containing data to analyze. Should be accessible as data[year][month][day][hour]
+        float yyyy - the year in yyyy format.
+        float mm - the month in mm format, normally assumes january.
+    Returns:
+        ndarray/float nam - nightly average and standard deviation, 00-06.
+        ndarray/float mam - morning average and standard deviation, 06-12.
+        ndarray/float aam - afternoon average and standard deviation, 12-18.
+        ndarray/float eam - evening average and standard deviation, 18-24
+    '''
+    # Select the required month.
+    dat = data[int(yyyy - YR_START)][mm-1]
+    nad, mad, aad, ead = [], [], [], []
+    for day in dat:
+        na = nanmin(day[0:6]); nad.append(na)
+        ma = nanmin(day[6:12]); mad.append(ma)
+        aa = nanmin(day[12:18]); aad.append(aa)
+        ea = nanmin(day[18:24]); ead.append(ea)
+    return (np.asarray(nad),), (np.asarray(mad),), (np.asarray(aad),), (np.asarray(ead),)
+
 def monDayNightAvg(data, yyyy, mm=1):
     ''' Calculate monthly average for the day hours and for the night hours separately.
     Gives the monthly average for the specified month.
@@ -187,14 +337,38 @@ def monDayNightAvg(data, yyyy, mm=1):
     # Select the required month.
     dat = data[int(yyyy - YR_START)][mm-1]
     nad, mad, aad, ead = [], [], [], []
+    nastd, mastd, aastd, eastd = [], [], [], []
     for day in dat:
-        na = nanmean(day[0:6]); nad.append(na)
-        ma = nanmean(day[6:12]); mad.append(ma)
-        aa = nanmean(day[12:18]); aad.append(aa)
-        ea = nanmean(day[18:24]); ead.append(ea)
-    return np.asarray(nad), np.asarray(mad), np.asarray(aad), np.asarray(ead)
+        na = nanmean(day[0:6]); nad.append(na); nastd.append(nanstd(day[0:6]))
+        ma = nanmean(day[6:12]); mad.append(ma); mastd.append(nanstd(day[6:12]))
+        aa = nanmean(day[12:18]); aad.append(aa); aastd.append(nanstd(day[12:18]))
+        ea = nanmean(day[18:24]); ead.append(ea); eastd.append(nanstd(day[18:24]))
+    return (np.asarray(nad), np.asarray(nastd)), (np.asarray(mad), np.asarray(mastd)), (np.asarray(aad), np.asarray(aastd)), (np.asarray(ead), np.asarray(eastd))
 
-def plot(ax, y, typ, yerror=None, title='', ylabel='', formt='o-', leg=False):
+def monDayNightMax(data, yyyy, mm=1):
+    ''' Calculate monthly maximum for the day hours and for the night hours separately.
+    Gives the monthly average for the specified month.
+    Args:
+        ndarray data - array containing data to analyze. Should be accessible as data[year][month][day][hour]
+        float yyyy - the year in yyyy format.
+        float mm - the month in mm format, normally assumes january.
+    Returns:
+        ndarray/float nam - nightly average and standard deviation, 00-06.
+        ndarray/float mam - morning average and standard deviation, 06-12.
+        ndarray/float aam - afternoon average and standard deviation, 12-18.
+        ndarray/float eam - evening average and standard deviation, 18-24
+    '''
+    # Select the required month.
+    dat = data[int(yyyy - YR_START)][mm-1]
+    nad, mad, aad, ead = [], [], [], []
+    for day in dat:
+        na = nanmax(day[0:6]); nad.append(na)
+        ma = nanmax(day[6:12]); mad.append(ma)
+        aa = nanmax(day[12:18]); aad.append(aa)
+        ea = nanmax(day[18:24]); ead.append(ea)
+    return (np.asarray(nad),), (np.asarray(mad),), (np.asarray(aad),), (np.asarray(ead),)
+
+def plot(ax, y, typ, yerror=None, title='', ylabel='', formt='o-', leg=False, lbl=''):
     ''' Eases the plotting of data by helping with the axes formtting.
     Args:
         Axis ax - the axis to plot on.
@@ -227,10 +401,10 @@ def plot(ax, y, typ, yerror=None, title='', ylabel='', formt='o-', leg=False):
         print '[plot] Please specify a correct typ.'
     if yerror is not None:
         x = range(len(y))
-        ax.errorbar(x, y, yerr=yerror, fmt=formt)
+        ax.errorbar(x, y, yerr=yerror, fmt=formt, label=lbl)
     else:
         x = range(len(y))
-        ax.plot(x, y, formt)
+        ax.plot(x, y, formt, label=lbl)
     if leg:
         ax.legend()
 
