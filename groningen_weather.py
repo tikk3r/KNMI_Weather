@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from __future__ import division
-import cgitb; cgitb.enable()
+import cgitb;# cgitb.enable()
 import cgi
 import math
 import numpy as np
@@ -386,7 +386,7 @@ def plot(ax, y, typ, yerror=None, title='', ylabel='', formt='o-', leg=False, lb
         ax.set_xlim(-1, 13)
         ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], 15))
         ax.set_xticklabels(month_labels)
-        ax.set_label('Month')
+        ax.set_xlabel('Month')
     elif typ == 'month':
         ax.set_xlim(-1, 32)
         day_labels = range(1, len(y)+1)
@@ -413,44 +413,27 @@ def plot(ax, y, typ, yerror=None, title='', ylabel='', formt='o-', leg=False, lb
 ##############################################################################################################################################################
 if __name__ == '__main__':
     from matplotlib.pyplot import figure, show
+    # Demonstrate all data from 2010 till now.
     reduce_data()
-    d = '2013021518'
-    print 'To use all available data use 00, e.g. 20121200 takes all days of december 2012.'
-    d = raw_input('Enter date as yyyymmdd or yyyymmddhh.: ')
-    data_set = input('Select Data Set (TEMP or CLOUD): ')
-    while 1:
-        if len(d) == 10: # yyyymmddhh
-            d = eval(d)
-            yyyy = int(d // 1e6)
-            mm = int((d % 1e6) // 1e4)
-            dd = int((d % 1e4) // 100)
-            hh = int((d % 1e2))
-            indx_h = hh - 1
-            break
-        if len(d) == 8: # yyyymmdd
-            d = eval(d)
-            yyyy = int(d // 1e4)
-            mm = int((d % 1e4) // 100)
-            dd = int((d % 100))
-            print yyyy, mm, dd
-            break
-        print '[Error] Enter a valid date.'
-        d = raw_input('Enter date as yyyy, yyyymm, yyyymmdd or yyyymmddhh: ')
-    #indx_y = yyyy - YR_START
-    #indx_m = mm - 1
-    #indx_d = dd - 1
-   
+    # Plot minimum, average and maximum temperature for every day.
     fig = figure()
-    ax = fig.add_subplot(111)
-    #ax.plot(range(12), monAvg(TEMP, yyyy))
-    #ax.set_ylim(-10, 30)
-    print len(monAvg(TEMP, yyyy)[0])
-    print len(monAvg(TEMP, yyyy)[1])
-    plot(ax, monAvg(data_set, yyyy)[0], yerror=monAvg(data_set,yyyy)[1], typ='year',title='Monthly Average for %.4d'%yyyy, ylabel='Temperature $\\degree$C')
-    #fig2 = figure()
-    #ax2 = fig2.add_subplot(111)
-    #plot(ax2, range(len(dayAvg(TEMP, yyyy, mm=mm)[0])), dayAvg(TEMP, yyyy, mm=mm)[0], type='month')
-    #fig3 = figure()
-    #ax3 = fig3.add_subplot(111)
-    #plot(ax3, range(len(hourDat(TEMP, yyyy, mm=mm))), hourDat(TEMP, yyyy, mm=mm), type='day')
+    fig.suptitle('Temperature per Day', fontweight='bold')
+    for i, yr in enumerate(range(2015 - YR_START + 1)):
+        ax = fig.add_subplot(math.floor(math.sqrt(len(DATE))), math.ceil(math.sqrt(len(DATE))), i+1)
+        y_min, y_avg, y_max = [], [], []
+        for month in range(len(DATE[yr])):
+            for day in range(len(DATE[yr][month])):
+                y_min.append(np.min(TEMP[yr][month][day]))
+                y_avg.append(np.mean(TEMP[yr][month][day]))
+                y_max.append(np.max(TEMP[yr][month][day]))
+        x = range(len(y_avg))
+        ax.set_xlim(-5, 370)
+        ax.set_ylim(-20, 40)
+        ax.xaxis.set_ticks(np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], 13))
+        ax.set_xticklabels(month_labels[1:])
+        ax.plot(x, y_min, 'bx', label='$T_{min}$')
+        ax.plot(x, y_avg, 'yo', label='$T_{avg}$')
+        ax.plot(x, y_max, 'rx', label='$T_{max}$')
+        ax.set_title(YR_START + i, fontweight='bold')
+        ax.legend()
     show()
